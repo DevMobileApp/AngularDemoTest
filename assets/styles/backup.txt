@@ -1,0 +1,128 @@
+import { Component } from '@angular/core';
+import * as XLSX from 'xlsx';
+
+
+@Component({
+  
+  selector: 'app-root',
+  templateUrl: './app.component.html',
+  styleUrls: ['./app.component.css']
+  // template: `
+  //   <h1>Hello World</h1>
+  //   <input type="file" (change)="onFileChange($event)" />
+  //`
+})
+export class AppComponent {
+ 
+  showPopup = false;
+  
+   // Table data for display
+   tableData: any[] = [];
+
+     // Method to add a new row manually
+  addRow() {
+    this.tableData.push({
+      username: '', // Empty username for a new row
+      roles: '', // Empty roles
+      project: '', // Empty project
+      selected: false, // Not selected by default
+    });
+  }
+
+  // Method to delete selected rows
+  deleteSelectedRows() {
+    this.tableData = this.tableData.filter((row) => !row.selected);
+  }
+
+
+   // Function triggered on file upload
+   onFileChange(event: any) {
+     const target: DataTransfer = <DataTransfer>(event.target);
+     if (target.files.length !== 1) throw new Error('Cannot use multiple files');
+ 
+     const reader: FileReader = new FileReader();
+     reader.onload = (e: any) => {
+       const bstr: string = e.target.result;
+       console.log('e.target.result:', bstr ); // Debug
+
+       const wb: XLSX.WorkBook = XLSX.read(bstr, { type: 'binary' });
+       const wsname: string = wb.SheetNames[0]; // Take the first sheet
+       const ws: XLSX.WorkSheet = wb.Sheets[wsname];
+ 
+       // Read the sheet into JSON format (header row starts at 0)
+       const data: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1 });
+ 
+       // Transform data into tableData format
+       this.tableData = data.slice(1).map((row) => ({
+         username: row[0] || '', // Assume column 0 is Username
+         roles: row[1] || '', // Assume column 1 is Roles
+         project: row[2] || '', // Assume column 2 is Project
+         selected: false, // Default the selected checkbox to false
+       }));
+     };
+ 
+     reader.readAsBinaryString(target.files[0]); // Read file as binary string
+   }
+ 
+
+  selectedRows: any[] = []; // Store selected rows
+
+  // Toggle Select All Checkboxes
+  toggleSelectAll(event: any) {
+    const checked = event.target.checked;
+    this.tableData.forEach((row) => {
+      row.selected = checked;
+    });
+    this.updateSelectedRows();
+  }
+
+  // Update selected rows array
+  updateSelectedRows() {
+    this.selectedRows = this.tableData.filter((row) => row.selected);
+  }
+
+  // Submit selected rows
+  submit() {
+    this.updateSelectedRows();
+    console.log('Selected Rows:', this.selectedRows);
+    alert('Selected Rows: ' + JSON.stringify(this.selectedRows));
+
+    this.exportToExcel();
+  }
+
+  // Reset table
+  reset() {
+    this.tableData.forEach((row) => {
+      row.username = '';
+      row.roles = '';
+      row.project = '';
+      row.selected = false;
+    });
+
+    this.tableData  = [];
+
+    this.updateSelectedRows();
+  }
+
+  // Create and download Excel file from table data
+  exportToExcel() {
+
+
+    this.tableData = this.tableData.filter((row) => row.selected);
+
+    // Prepare data in array format
+    const exportData = [
+      ['Username', 'Roles', 'Project'], // Header row
+      ...this.tableData.map((row) => [row.username, row.roles, row.project]), // Table rows
+    ];
+
+    // Create a new workbook and worksheet
+    const ws: XLSX.WorkSheet = XLSX.utils.aoa_to_sheet(exportData);
+    const wb: XLSX.WorkBook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'TableData');
+
+    // Save the workbook as an Excel file
+    XLSX.writeFile(wb, 'table-data.xlsx');
+  }
+  
+}
